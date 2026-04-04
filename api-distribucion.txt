@@ -1,0 +1,166 @@
+======================================================
+DISTRIBUCIÓN DE ENDPOINTS PARA LA API
+TIENDA FÍSICA + E-COMMERCE
+======================================================
+
+/roles
+  GET    /roles
+  POST   /roles
+  PUT    /roles/:id
+  DELETE /roles/:id
+
+------------------------------------------------------
+
+/usuarios
+  GET    /usuarios
+  GET    /usuarios/:id
+  POST   /usuarios
+  PUT    /usuarios/:id
+  DELETE /usuarios/:id
+
+/usuarios/:id/direcciones
+  GET    /usuarios/:id/direcciones
+  POST   /usuarios/:id/direcciones
+  PUT    /usuarios/:id/direcciones/:idDireccion
+  DELETE /usuarios/:id/direcciones/:idDireccion
+
+------------------------------------------------------
+
+/marcas
+  GET    /marcas
+  GET    /marcas/:id
+  POST   /marcas
+  PUT    /marcas/:id
+  DELETE /marcas/:id
+
+/categorias
+  GET    /categorias
+  GET    /categorias/:id
+  GET    /categorias/:id/subcategorias
+  POST   /categorias
+  PUT    /categorias/:id
+  DELETE /categorias/:id
+
+------------------------------------------------------
+
+/productos
+  GET    /productos              (filtros: marca, categoria, activo)
+  GET    /productos/:id
+  POST   /productos
+  PUT    /productos/:id
+  DELETE /productos/:id          (soft delete -> activo = 0)
+
+/productos/:id/variantes
+  GET    /productos/:id/variantes
+  POST   /productos/:id/variantes
+  PUT    /productos/:id/variantes/:idVariante
+  DELETE /productos/:id/variantes/:idVariante  (soft delete)
+
+/variantes/:id/imagenes
+  GET    /variantes/:id/imagenes
+  POST   /variantes/:id/imagenes       (multipart/form-data -> sube a Cloudinary -> guarda URL + public_id)
+  DELETE /variantes/:id/imagenes/:idImagen  (elimina en Cloudinary por public_id -> luego borra en BD)
+
+NOTA BD: agregar columna a imagenes_producto:
+  ALTER TABLE imagenes_producto ADD cloudinary_public_id NVARCHAR(200) NULL;
+
+/variantes/:id/especificaciones
+  GET    /variantes/:id/especificaciones
+  POST   /variantes/:id/especificaciones
+  PUT    /variantes/:id/especificaciones/:idEspec
+  DELETE /variantes/:id/especificaciones/:idEspec
+
+------------------------------------------------------
+
+/tiendas
+  GET    /tiendas
+  GET    /tiendas/:id
+  POST   /tiendas
+  PUT    /tiendas/:id
+  DELETE /tiendas/:id            (soft delete -> activo = 0)
+
+/tiendas/:id/stock
+  GET    /tiendas/:id/stock
+  PUT    /tiendas/:id/stock/:idVariante
+
+/variantes/:id/stock
+  GET    /variantes/:id/stock
+
+------------------------------------------------------
+
+/turnos
+  GET    /tiendas/:id/turnos
+  GET    /turnos/:id
+  POST   /turnos                 (abrir turno)
+  PUT    /turnos/:id             (cerrar turno: hora_fin, efectivo_final)
+
+------------------------------------------------------
+
+/carrito  (siempre del usuario autenticado)
+  GET    /carrito
+  POST   /carrito/items
+  PUT    /carrito/items/:idItem
+  DELETE /carrito/items/:idItem
+  DELETE /carrito                (vaciar carrito)
+
+------------------------------------------------------
+
+/pedidos
+  GET    /pedidos
+  GET    /pedidos/:id
+  POST   /pedidos
+  PUT    /pedidos/:id/estado
+  DELETE /pedidos/:id            (solo si estado = 'pendiente')
+
+/pedidos/:id/pagos
+  GET    /pedidos/:id/pagos
+  POST   /pedidos/:id/pagos
+
+/pedidos/:id/cupones
+  POST   /pedidos/:id/cupones
+  DELETE /pedidos/:id/cupones/:idCupon
+
+------------------------------------------------------
+
+/devoluciones
+  GET    /devoluciones
+  GET    /pedidos/:id/devoluciones
+  GET    /devoluciones/:id/items
+  POST   /pedidos/:id/devoluciones
+  PUT    /devoluciones/:id/estado
+
+------------------------------------------------------
+
+/cupones
+  GET    /cupones
+  GET    /cupones/:id
+  POST   /cupones
+  POST   /cupones/validar        (verificar codigo antes de aplicar)
+  PUT    /cupones/:id
+  DELETE /cupones/:id
+
+------------------------------------------------------
+
+/inventario/transacciones
+  GET    /inventario/transacciones   (filtros: variante, tienda, tipo, fecha)
+  POST   /inventario/transacciones   (ajuste manual o compra)
+  * Las transacciones de venta/devolucion se generan automaticamente
+
+------------------------------------------------------
+
+/metodos-envio
+  GET    /metodos-envio
+  POST   /metodos-envio
+  PUT    /metodos-envio/:id
+  DELETE /metodos-envio/:id
+
+======================================================
+REGLAS GENERALES
+======================================================
+
+- DELETE real solo en: roles, marcas, categorias, cupones, metodos-envio,
+  imagenes y especificaciones de variantes.
+- Productos, variantes y tiendas usan soft delete (campo activo).
+- Pedidos y devoluciones nunca se eliminan, solo cambian de estado.
+- Transacciones de inventario son de solo lectura y escritura (sin PUT/DELETE).
+- El carrito siempre esta ligado al usuario autenticado (no se expone id_usuario en URL).
