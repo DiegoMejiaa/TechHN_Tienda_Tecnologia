@@ -11,7 +11,7 @@ interface Cupon {
   usos_actuales: number; activo: boolean; fecha_expiracion?: string; creado_en: string;
 }
 
-const FORM_VACIO = { codigo: '', tipo: 'porcentaje' as const, valor: '', minimo_compra: '', usos_maximos: '', fecha_expiracion: '', activo: true };
+const FORM_VACIO = { codigo: '', tipo: 'porcentaje' as 'porcentaje' | 'monto_fijo', valor: '', minimo_compra: '', usos_maximos: '', fecha_expiracion: '', activo: true };
 
 function isExpired(fecha?: string) { return fecha ? new Date(fecha) < new Date() : false; }
 

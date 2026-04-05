@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
@@ -8,6 +8,14 @@ import { ProductCard } from '@/components/products/product-card';
 import type { Producto, Categoria, Marca, ApiResponse } from '@/types';
 
 export default function ProductosPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}><div className="spinner" /></div>}>
+      <ProductosContent />
+    </Suspense>
+  );
+}
+
+function ProductosContent() {
   const searchParams = useSearchParams();
   const categoriaParam = searchParams.get('categoria');
   const marcaParam = searchParams.get('marca');

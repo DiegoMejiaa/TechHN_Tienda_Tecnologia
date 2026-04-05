@@ -20,7 +20,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [carrito, setCarrito] = useState<Carrito | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const getAuthHeaders = () => {
+  const getAuthHeaders = (): Record<string, string> => {
     const token = sessionStorage.getItem('token');
     return token ? { 'Authorization': `Bearer ${token}` } : {};
   };
