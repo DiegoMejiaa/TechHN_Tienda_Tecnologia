@@ -262,6 +262,7 @@ body {
 
   /* ── BADGES ── */
   .badge {
+    white-space: nowrap;
     display: inline-flex;
     align-items: center;
     border-radius: 9999px;
@@ -305,9 +306,11 @@ body {
 
   /* ── TABLE ── */
   .table-wrapper {
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
     border-radius: 0.75rem;
     border: 1px solid var(--border);
+    -webkit-overflow-scrolling: touch;
   }
   .table-header {
     background-color: var(--bg-secondary);

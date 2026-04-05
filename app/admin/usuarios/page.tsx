@@ -258,7 +258,7 @@ export default function AdminUsuariosPage() {
                       {u.id_tienda ? (tiendas.find(t => Number(t.id) === Number(u.id_tienda))?.nombre || '—') : '—'}
                     </td>
                     <td className="table-cell">
-                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap"
                         style={{ backgroundColor: rol?.bg || 'var(--bg-secondary)', color: rol?.color || 'var(--text-muted)' }}>
                         {rol?.label || 'Desconocido'}
                       </span>
@@ -358,9 +358,13 @@ export default function AdminUsuariosPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-muted)' }}>Rol <span style={{ color: 'var(--danger)' }}>*</span></label>
-                  <select value={form.id_rol} onChange={e => setForm({ ...form, id_rol: e.target.value })} className="select py-2">
-                    {rolOptions.map(r => <option key={r.id} value={r.id}>{ROL_STYLE[Number(r.id)]?.label ?? r.nombre}</option>)}
-                  </select>
+                  {editId && Number(form.id_rol) === 1 ? (
+                    <div className="select py-2 cursor-not-allowed opacity-60">Super Admin</div>
+                  ) : (
+                    <select value={form.id_rol} onChange={e => setForm({ ...form, id_rol: e.target.value })} className="select py-2">
+                      {rolOptions.map(r => <option key={r.id} value={r.id}>{ROL_STYLE[Number(r.id)]?.label ?? r.nombre}</option>)}
+                    </select>
+                  )}
                   {ROL_STYLE[Number(form.id_rol)] && (
                     <span className="mt-2 inline-block text-xs font-semibold px-2.5 py-1 rounded-full"
                       style={{ backgroundColor: ROL_STYLE[Number(form.id_rol)].bg, color: ROL_STYLE[Number(form.id_rol)].color }}>
