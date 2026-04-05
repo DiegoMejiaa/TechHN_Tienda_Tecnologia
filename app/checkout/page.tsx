@@ -101,6 +101,7 @@ export default function CheckoutPage() {
       }
       const buttons = window.paypal.Buttons({
         style: { layout: 'vertical', color: 'blue', shape: 'rect', label: 'pay', height: 48 },
+        enableStandardCardFields: false,
         createOrder: async () => {
           const token = sessionStorage.getItem('token');
           const res = await fetch('/api/paypal/create-order', {
