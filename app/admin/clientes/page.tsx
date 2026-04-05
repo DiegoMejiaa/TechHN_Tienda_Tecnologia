@@ -27,6 +27,8 @@ export default function AdminClientesPage() {
   const [detalle, setDetalle] = useState<ClienteConStats | null>(null);
   const [pedidosCliente, setPedidosCliente] = useState<Pedido[]>([]);
   const [loadingPedidos, setLoadingPedidos] = useState(false);
+  const [pedidoExpandido, setPedidoExpandido] = useState<number | null>(null);
+  const [itemsPedido, setItemsPedido] = useState<Record<number, any[]>>({});
   const [confirmDelete, setConfirmDelete] = useState<ClienteConStats | null>(null);
   const [message, setMessage] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -74,7 +76,19 @@ export default function AdminClientesPage() {
     fetchData();
   }, [authLoading]);
 
-  const openDetalle = async (c: ClienteConStats) => {
+  const togglePedido = async (pedidoId: number) => {
+    if (pedidoExpandido === pedidoId) { setPedidoExpandido(null); return; }
+    setPedidoExpandido(pedidoId);
+    if (!itemsPedido[pedidoId]) {
+      try {
+        const res = await apiFetch(`/api/pedidos?id=${pedidoId}`);
+        const data = await res.json();
+        if (data.success && data.data?.items) {
+          setItemsPedido(prev => ({ ...prev, [pedidoId]: data.data.items }));
+        }
+      } catch { /* ignore */ }
+    }
+  };
     setDetalle(c);
     setLoadingPedidos(true);
     try {
@@ -291,19 +305,88 @@ export default function AdminClientesPage() {
                   <div className="space-y-2">
                     {pedidosCliente.map(p => {
                       const s = ESTADO_STYLE[p.estado] || { color: 'var(--text-muted)', bg: 'var(--bg-secondary)' };
+                      const expandido = pedidoExpandido === p.id;
                       return (
-                        <div key={p.id} className="flex items-center justify-between rounded-xl px-3 py-2.5"
+                        <div key={p.id} className="rounded-xl overflow-hidden"
                           style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-                          <div>
-                            <p className="text-xs font-semibold" style={{ color: 'var(--text)' }}>
-                              {new Date(p.creado_en).toLocaleDateString('es-HN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                            </p>
-                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full mt-0.5 inline-block"
-                              style={{ backgroundColor: s.bg, color: s.color }}>
-                              {p.estado}
-                            </span>
-                          </div>
-                          <p className="text-sm font-bold" style={{ color: 'var(--text)' }}>{formatLempira(p.monto_total)}</p>
+                          {/* Fila principal */}
+                          <button className="w-full flex items-center justify-between px-3 py-2.5 text-left"
+                            onClick={() => setPedidoExpandido(expandido ? null : p.id)}>
+                            <div className="flex items-center gap-2.5">
+                              <div>
+                                <p className="text-xs font-semibold" style={{ color: 'var(--text)' }}>
+                                  Pedido #{p.id}
+                                </p>
+                                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                  {new Date(p.creado_en).toLocaleDateString('es-HN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </p>
+                              </div>
+                              <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                                style={{ backgroundColor: s.bg, color: s.color }}>
+                                {p.estado}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-bold" style={{ color: 'var(--text)' }}>{formatLempira(p.monto_total)}</p>
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"
+                                className="h-3.5 w-3.5 transition-transform" style={{ color: 'var(--text-muted)', transform: expandido ? 'rotate(180deg)' : '' }}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                              </svg>
+                            </div>
+                          </button>
+
+                          {/* Detalle expandido */}
+                          {expandido && (
+                            <div className="px-3 pb-3 space-y-2" style={{ borderTop: '1px solid var(--border)' }}>
+                              <div className="pt-2 grid grid-cols-2 gap-2 text-xs">
+                                {(p as any).nombre_tienda && (
+                                  <div>
+                                    <span style={{ color: 'var(--text-muted)' }}>Sucursal</span>
+                                    <p className="font-semibold" style={{ color: 'var(--text)' }}>{(p as any).nombre_tienda}</p>
+                                  </div>
+                                )}
+                                {(p as any).metodo_pago && (
+                                  <div>
+                                    <span style={{ color: 'var(--text-muted)' }}>Método de pago</span>
+                                    <p className="font-semibold capitalize" style={{ color: 'var(--text)' }}>{(p as any).metodo_pago}</p>
+                                  </div>
+                                )}
+                                {(p as any).cliente_nombre && (
+                                  <div>
+                                    <span style={{ color: 'var(--text-muted)' }}>Cliente</span>
+                                    <p className="font-semibold" style={{ color: 'var(--text)' }}>{(p as any).cliente_nombre}</p>
+                                  </div>
+                                )}
+                                {(p as any).cliente_telefono && (
+                                  <div>
+                                    <span style={{ color: 'var(--text-muted)' }}>Teléfono</span>
+                                    <p className="font-semibold" style={{ color: 'var(--text)' }}>{(p as any).cliente_telefono}</p>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Items del pedido */}
+                              {(p as any).items && (p as any).items.length > 0 && (
+                                <div className="space-y-1.5 pt-1" style={{ borderTop: '1px solid var(--border)' }}>
+                                  <p className="text-xs font-semibold uppercase tracking-wider pt-1" style={{ color: 'var(--text-muted)' }}>Productos</p>
+                                  {(p as any).items.map((item: any, i: number) => (
+                                    <div key={i} className="flex items-center justify-between rounded-lg px-2.5 py-2"
+                                      style={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)' }}>
+                                      <div className="min-w-0">
+                                        <p className="text-xs font-semibold truncate" style={{ color: 'var(--text)' }}>{item.nombre_producto}</p>
+                                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{item.nombre_variante || item.sku} · x{item.cantidad}</p>
+                                      </div>
+                                      <p className="text-xs font-bold shrink-0 ml-2" style={{ color: 'var(--text)' }}>{formatLempira(item.precio_unitario * item.cantidad)}</p>
+                                    </div>
+                                  ))}
+                                  <div className="flex justify-between pt-1 text-xs font-bold" style={{ color: 'var(--text)' }}>
+                                    <span>Total</span>
+                                    <span>{formatLempira(p.monto_total)}</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })}

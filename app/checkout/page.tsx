@@ -189,11 +189,15 @@ export default function CheckoutPage() {
       script.id = 'paypal-sdk';
       script.src = `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=USD&locale=es_HN`;
       script.onload = () => { if (!cancelled) renderButtons(); };
+      script.onerror = () => { if (!cancelled) setError('No se pudo cargar PayPal. Verifica tu conexión e intenta de nuevo.'); };
       document.body.appendChild(script);
     } else {
+      let attempts = 0;
       const interval = setInterval(() => {
+        attempts++;
         if (window.paypal) { clearInterval(interval); if (!cancelled) renderButtons(); }
-      }, 100);
+        else if (attempts > 50) { clearInterval(interval); if (!cancelled) setError('PayPal tardó demasiado en cargar. Recarga la página.'); }
+      }, 200);
       return () => { cancelled = true; clearInterval(interval); };
     }
 
