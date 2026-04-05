@@ -102,7 +102,23 @@ export async function DELETE(request: NextRequest) {
       JOIN variantes_producto v ON ip.id_variante = v.id
       WHERE v.id_producto = @id_producto`);
 
-    // 3. Ahora sí borrar el producto (variantes, imágenes y stock se borran por CASCADE)
+    // 3. Stock de las variantes
+    await pool.request().input('id_producto', sql.BigInt, id).query(`
+      DELETE ns FROM niveles_stock ns
+      JOIN variantes_producto v ON ns.id_variante = v.id
+      WHERE v.id_producto = @id_producto`);
+
+    // 4. Reseñas del producto
+    await pool.request().input('id_producto', sql.BigInt, id).query(
+      'DELETE FROM resenas WHERE id_producto = @id_producto'
+    );
+
+    // 5. Variantes
+    await pool.request().input('id_producto', sql.BigInt, id).query(
+      'DELETE FROM variantes_producto WHERE id_producto = @id_producto'
+    );
+
+    // 6. Producto
     const result = await pool.request().input('id', sql.BigInt, id)
       .query('DELETE FROM productos OUTPUT DELETED.id WHERE id = @id');
     if (result.recordset.length === 0) return errorResponse('Producto no encontrado', 404);

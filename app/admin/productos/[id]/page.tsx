@@ -41,6 +41,10 @@ export default function EditProductoPage() {
   const [nuevaVariante, setNuevaVariante] = useState({
     sku: '', nombre_variante: '', precio: '', precio_oferta: '',
   });
+  const [nuevaVarianteImagen, setNuevaVarianteImagen] = useState<File | null>(null);
+  const [nuevaVarianteImagenPreview, setNuevaVarianteImagenPreview] = useState<string | null>(null);
+  const [nuevaVarianteStock, setNuevaVarianteStock] = useState<Record<string, string>>({});
+  const [uploadingNueva, setUploadingNueva] = useState(false);
   const [stockForm, setStockForm] = useState<Record<string, string>>({});
   const [editVariante, setEditVariante] = useState<Record<number, { sku: string; nombre_variante: string; precio: string; precio_oferta: string; activo: boolean }>>({});
   const [savingVariante, setSavingVariante] = useState<number | null>(null);
@@ -100,6 +104,22 @@ export default function EditProductoPage() {
 
   const notify = (msg: string) => { setMessage(msg); setTimeout(() => setMessage(''), 3000); };
 
+  const recargarVariantesYStock = async () => {
+    const varRes = await apiFetch(`/api/variantes?id_producto=${productId}`);
+    const varData: ApiResponse<VarianteProducto[]> = await varRes.json();
+    if (varData.success && varData.data) {
+      setVariantes(varData.data);
+      const stockMap: Record<string, string> = {};
+      for (const v of varData.data) {
+        const sRes = await apiFetch(`/api/stock?id_variante=${v.id}`);
+        const sData: ApiResponse<{ id_variante: number; id_tienda: number; cantidad: number }[]> = await sRes.json();
+        if (sData.success && sData.data)
+          for (const s of sData.data) stockMap[`${s.id_variante}_${s.id_tienda}`] = String(s.cantidad);
+      }
+      setStockForm(stockMap);
+    }
+  };
+
   const handleUploadImagen = async (file: File) => {
     setUploadingId(-1);
     try {
@@ -145,14 +165,17 @@ export default function EditProductoPage() {
       body: JSON.stringify({ id_variante: varianteId, id_tienda: tiendaId, cantidad: parseInt(stockForm[key] || '0') }),
     });
     notify('Stock actualizado');
-    const varRes = await apiFetch(`/api/variantes?id_producto=${productId}`);
-    const varData: ApiResponse<VarianteProducto[]> = await varRes.json();
-    if (varData.success && varData.data) setVariantes(varData.data);
+    await recargarVariantesYStock();
   };
 
   const handleAddVariante = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nuevaVariante.sku || !nuevaVariante.precio) return;
+    if (!nuevaVariante.sku || !nuevaVariante.precio) {
+      setError('SKU y precio son requeridos');
+      return;
+    }
+    setUploadingNueva(true);
+    setError('');
     try {
       const res = await apiFetch('/api/variantes', {
         method: 'POST',
@@ -164,12 +187,45 @@ export default function EditProductoPage() {
         }),
       });
       const data: ApiResponse<VarianteProducto> = await res.json();
-      if (data.success && data.data) {
-        setVariantes([...variantes, data.data]);
-        setNuevaVariante({ sku: '', nombre_variante: '', precio: '', precio_oferta: '' });
-        notify('Variante agregada');
+      if (!data.success || !data.data) {
+        setError(data.error || data.message || 'Error al crear la variante');
+        return;
       }
-    } catch { /* ignore */ }
+      const varianteId = data.data.id;
+      // Subir imagen si hay
+      if (nuevaVarianteImagen) {
+        const form = new FormData();
+        form.append('file', nuevaVarianteImagen); form.append('folder', 'variantes');
+        const token = sessionStorage.getItem('token');
+        const uploadRes = await fetch('/api/upload', { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: form });
+        const uploadData: ApiResponse<{ url: string; publicId: string }> = await uploadRes.json();
+        if (uploadData.success && uploadData.data) {
+          await apiFetch('/api/variantes', {
+            method: 'PUT',
+            body: JSON.stringify({ id: varianteId, imagen_url: uploadData.data.url, cloudinary_public_id: uploadData.data.publicId }),
+          });
+        }
+      }
+      // Guardar stock por tienda
+      const stockEntries = Object.entries(nuevaVarianteStock).filter(([, v]) => parseInt(v) > 0);
+      await Promise.all(stockEntries.map(([tiendaId, cantidad]) =>
+        apiFetch('/api/stock', {
+          method: 'PUT',
+          body: JSON.stringify({ id_variante: varianteId, id_tienda: Number(tiendaId), cantidad: parseInt(cantidad) }),
+        })
+      ));
+      // Recargar variantes y stock
+      await recargarVariantesYStock();
+      setNuevaVariante({ sku: '', nombre_variante: '', precio: '', precio_oferta: '' });
+      setNuevaVarianteImagen(null);
+      setNuevaVarianteImagenPreview(null);
+      setNuevaVarianteStock({});
+      notify('Variante agregada');
+    } catch (err) {
+      console.error(err);
+      setError('Error al crear la variante');
+    }
+    finally { setUploadingNueva(false); }
   };
 
   const handleDeleteVariante = async (id: number) => {
@@ -237,7 +293,7 @@ export default function EditProductoPage() {
       });
       const data: ApiResponse<VarianteProducto> = await res.json();
       if (data.success && data.data) {
-        setVariantes(variantes.map(v => v.id === id ? { ...v, ...data.data! } : v));
+        await recargarVariantesYStock();
         cancelEditVariante(id);
         notify('Variante actualizada');
       } else {
@@ -440,30 +496,27 @@ export default function EditProductoPage() {
             ) : variantes.map((variante) => (
               <div key={variante.id} className="rounded-xl p-3 space-y-3" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
                 <div className="flex items-center gap-3">
-                  {/* Imagen variante clickeable */}
-                  <label className="relative cursor-pointer group shrink-0">
-                    <div className="h-12 w-12 rounded-xl overflow-hidden flex items-center justify-center" style={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)' }}>
+                  {/* Imagen variante */}
+                  <div className="flex flex-col items-center gap-1 shrink-0">
+                    <div className="relative h-12 w-12 rounded-xl overflow-hidden flex items-center justify-center group"
+                      style={{ backgroundColor: 'var(--card)', border: '1px solid var(--border)' }}>
                       {variante.imagen_url
-                        ? <img src={variante.imagen_url} alt="" className="h-full w-full object-contain p-0.5" />
+                        ? <img src={variante.imagen_url} alt="" className="h-full w-full object-contain p-0.5 cursor-pointer"
+                            onClick={() => setLightboxUrl(variante.imagen_url!)} />
                         : IMG_PLACEHOLDER}
+                      {uploadingId === variante.id && (
+                        <div className="absolute inset-0 flex items-center justify-center rounded-xl" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                          <span className="spinner h-4 w-4 border-2 border-white" />
+                        </div>
+                      )}
                     </div>
-                    {/* Overlay zoom */}
-                    {variante.imagen_url && (
-                      <button
-                        type="button"
-                        onClick={e => { e.preventDefault(); setLightboxUrl(variante.imagen_url!); }}
-                        className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl"
-                        style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="white" className="h-4 w-4">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607ZM10.5 7.5v6m3-3h-6" />
-                        </svg>
-                      </button>
-                    )}
-                    <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
-                      disabled={uploadingId === variante.id}
-                      onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadVarianteImagen(variante.id, f); e.target.value = ''; }} />
-                  </label>
+                    <label className="text-xs cursor-pointer font-medium" style={{ color: 'var(--blue)' }}>
+                      {variante.imagen_url ? 'Cambiar' : '+ Imagen'}
+                      <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                        disabled={uploadingId === variante.id}
+                        onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadVarianteImagen(variante.id, f); e.target.value = ''; }} />
+                    </label>
+                  </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold truncate" style={{ color: 'var(--text)' }}>{variante.nombre_variante || variante.sku}</p>
                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
@@ -522,6 +575,30 @@ export default function EditProductoPage() {
                         <div className="absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform" style={{ transform: editVariante[variante.id].activo ? 'translateX(16px)' : 'translateX(2px)' }} />
                       </div>
                     </div>
+                    {/* Stock por tienda editable */}
+                    {tiendas.length > 0 && (
+                      <div className="space-y-1.5 pt-1">
+                        <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Stock por tienda</p>
+                        {tiendas.map(tienda => {
+                          const key = `${variante.id}_${tienda.id}`;
+                          return (
+                            <div key={tienda.id} className="flex items-center gap-2">
+                              <span className="flex-1 text-xs truncate" style={{ color: 'var(--text)' }}>{tienda.nombre}</span>
+                              <input type="number" min="0" step="1"
+                                value={stockForm[key] ?? '0'}
+                                onChange={e => {
+                                  const v = Math.max(0, Math.floor(Number(e.target.value)));
+                                  setStockForm(prev => ({ ...prev, [key]: String(isNaN(v) ? 0 : v) }));
+                                }}
+                                className="input w-16 text-center py-1 px-2 text-xs" />
+                              <button type="button" onClick={() => handleSaveStock(variante.id, tienda.id)} className="btn-primary text-xs px-2.5 py-1 shrink-0">
+                                Guardar
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                     <div className="flex gap-2">
                       <button onClick={() => cancelEditVariante(variante.id)} className="btn-ghost flex-1 text-xs py-1.5">Cancelar</button>
                       <button onClick={() => handleSaveVariante(variante.id)} disabled={savingVariante === variante.id} className="btn-primary flex-1 text-xs py-1.5">
@@ -537,30 +614,6 @@ export default function EditProductoPage() {
                     </svg>
                     Editar variante
                   </button>
-                )}
-
-                {tiendas.length > 0 && (
-                  <div className="space-y-1.5 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
-                    <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Stock por tienda</p>
-                    {tiendas.map(tienda => {
-                      const key = `${variante.id}_${tienda.id}`;
-                      return (
-                        <div key={tienda.id} className="flex items-center gap-2">
-                          <span className="flex-1 text-xs truncate" style={{ color: 'var(--text)' }}>{tienda.nombre}</span>
-                          <input type="number" min="0" step="1"
-                            value={stockForm[key] ?? '0'}
-                            onChange={e => {
-                              const v = Math.max(0, Math.floor(Number(e.target.value)));
-                              setStockForm(prev => ({ ...prev, [key]: String(isNaN(v) ? 0 : v) }));
-                            }}
-                            className="input w-16 text-center py-1 px-2 text-xs" />
-                          <button onClick={() => handleSaveStock(variante.id, tienda.id)} className="btn-primary text-xs px-2.5 py-1 shrink-0">
-                            Guardar
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
                 )}
               </div>
             ))}
@@ -583,11 +636,67 @@ export default function EditProductoPage() {
                 onChange={e => setNuevaVariante({ ...nuevaVariante, precio_oferta: e.target.value })}
                 className="input text-sm py-2" />
             </div>
-            <button type="submit" className="btn-secondary w-full py-2 text-sm">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
-              Agregar variante
+
+            {/* Imagen */}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-muted)' }}>Imagen (opcional)</p>
+              <div className="flex items-center gap-3">
+                {nuevaVarianteImagenPreview ? (
+                  <div className="relative h-14 w-14 rounded-xl overflow-hidden shrink-0" style={{ border: '1px solid var(--border)' }}>
+                    <img src={nuevaVarianteImagenPreview} alt="" className="h-full w-full object-contain p-1" />
+                    <button type="button" onClick={() => { setNuevaVarianteImagen(null); setNuevaVarianteImagenPreview(null); }}
+                      className="absolute top-0.5 right-0.5 flex h-4 w-4 items-center justify-center rounded-full text-white text-xs"
+                      style={{ backgroundColor: 'var(--danger)' }}>✕</button>
+                  </div>
+                ) : (
+                  <div className="h-14 w-14 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px dashed var(--border)' }}>
+                    {IMG_PLACEHOLDER}
+                  </div>
+                )}
+                <label className="btn-secondary text-xs cursor-pointer">
+                  {nuevaVarianteImagen ? 'Cambiar imagen' : 'Seleccionar imagen'}
+                  <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                    onChange={e => {
+                      const f = e.target.files?.[0];
+                      if (f) { setNuevaVarianteImagen(f); setNuevaVarianteImagenPreview(URL.createObjectURL(f)); }
+                      e.target.value = '';
+                    }} />
+                </label>
+              </div>
+            </div>
+
+            {/* Stock inicial por tienda */}
+            {tiendas.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-muted)' }}>Stock inicial por tienda</p>
+                <div className="space-y-1.5">
+                  {tiendas.map(tienda => (
+                    <div key={tienda.id} className="flex items-center gap-2">
+                      <span className="flex-1 text-xs truncate" style={{ color: 'var(--text)' }}>{tienda.nombre}</span>
+                      <input type="number" min="0" step="1"
+                        value={nuevaVarianteStock[String(tienda.id)] ?? '0'}
+                        onChange={e => {
+                          const v = Math.max(0, Math.floor(Number(e.target.value)));
+                          setNuevaVarianteStock(prev => ({ ...prev, [String(tienda.id)]: String(isNaN(v) ? 0 : v) }));
+                        }}
+                        className="input w-16 text-center py-1 px-2 text-xs" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <button type="submit" disabled={uploadingNueva} className="btn-secondary w-full py-2 text-sm disabled:opacity-50">
+              {uploadingNueva ? (
+                <><span className="spinner h-4 w-4 border-2" />Creando...</>
+              ) : (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                  </svg>
+                  Agregar variante
+                </>
+              )}
             </button>
           </form>
         </div>

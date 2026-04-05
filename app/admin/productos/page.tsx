@@ -50,16 +50,13 @@ export default function AdminProductosPage() {
 
           const stockPorProducto: Record<number, number> = {};
           stockItems.forEach(s => {
-            if (s.id_producto && Number(s.cantidad) > 0) {
+            if (s.id_producto) {
               stockPorProducto[Number(s.id_producto)] = (stockPorProducto[Number(s.id_producto)] || 0) + Number(s.cantidad);
             }
           });
           setStockSucursal(stockPorProducto);
-          const productosConStock = new Set(Object.keys(stockPorProducto).map(Number));
-          // Mostrar todos los productos que tienen al menos una variante con stock
-          // Comparar como string para evitar problemas de tipo
-          const productosConStockStr = new Set(Object.keys(stockPorProducto));
-          setProductos(data.data.filter(p => productosConStockStr.has(String(p.id))));
+          // Mostrar todos los productos activos (con o sin stock)
+          setProductos(data.data);
         } else {
           setProductos(data.data);
         }
@@ -81,8 +78,15 @@ export default function AdminProductosPage() {
     try {
       const res = await apiFetch(`/api/productos?id=${producto.id}`, { method: 'DELETE' });
       const data: ApiResponse<unknown> = await res.json();
-      if (data.success) setProductos(prev => prev.filter(p => p.id !== producto.id));
-    } catch { /* ignore */ }
+      if (data.success) {
+        setProductos(prev => prev.filter(p => p.id !== producto.id));
+      } else {
+        alert(data.message || data.error || 'Error al eliminar el producto');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Error al eliminar el producto');
+    }
     finally { setDeletingId(null); }
   };
 
@@ -151,7 +155,7 @@ export default function AdminProductosPage() {
           <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>Productos</h1>
           <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
             {isAdminSucursal
-              ? `${productos.length} producto${productos.length !== 1 ? 's' : ''} con stock en tu sucursal`
+              ? `${productos.length} producto${productos.length !== 1 ? 's' : ''} en el catálogo`
               : `${productos.length} producto${productos.length !== 1 ? 's' : ''} en el catálogo`}
           </p>
         </div>

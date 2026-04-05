@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
           p.nombre as nombre_producto,
           ISNULL((SELECT SUM(ns.cantidad) FROM niveles_stock ns WHERE ns.id_variante = v.id), 0) as stock_total
           FROM variantes_producto v JOIN productos p ON v.id_producto = p.id
-          WHERE v.id_producto = @id_producto ORDER BY v.nombre_variante`);
+          WHERE v.id_producto = @id_producto AND v.activo = 1 ORDER BY v.nombre_variante`);
       return successResponse(result.recordset);
     }
     const result = await pool.request().query(`SELECT v.id, v.id_producto, v.sku, v.nombre_variante, v.precio, v.precio_oferta, v.activo,
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       .input('activo', sql.Bit, activo !== undefined ? (activo ? 1 : 0) : 1)
       .query('INSERT INTO variantes_producto (id_producto, sku, nombre_variante, precio, precio_oferta, activo) OUTPUT INSERTED.* VALUES (@id_producto, @sku, @nombre_variante, @precio, @precio_oferta, @activo)');
     return createdResponse(result.recordset[0]);
-  } catch (e) { const a = authError(e); if (a) return errorResponse(a, 403); console.error('[POST /api/variantes error]', e); return errorResponse('Error al crear la variante'); }
+  } catch (e: any) { const a = authError(e); if (a) return errorResponse(a, 403); console.error('[POST /api/variantes error]', e); if (e?.number === 2627 || e?.number === 2601) return errorResponse('Ya existe una variante con ese SKU', 409); return errorResponse('Error al crear la variante'); }
 }
 
 export async function PUT(request: NextRequest) {
@@ -92,9 +92,10 @@ export async function DELETE(request: NextRequest) {
     const id = new URL(request.url).searchParams.get('id');
     if (!id) return errorResponse('id es requerido', 400);
     const pool = await getConnection();
-    // soft delete
-    const result = await pool.request().input('id', sql.BigInt, id).query('UPDATE variantes_producto SET activo = 0 OUTPUT INSERTED.id WHERE id = @id');
+    // Borrar stock asociado primero
+    await pool.request().input('id', sql.BigInt, id).query('DELETE FROM niveles_stock WHERE id_variante = @id');
+    const result = await pool.request().input('id', sql.BigInt, id).query('DELETE FROM variantes_producto OUTPUT DELETED.id WHERE id = @id');
     if (result.recordset.length === 0) return errorResponse('Variante no encontrada', 404);
-    return successResponse({ message: 'Variante desactivada' });
+    return successResponse({ message: 'Variante eliminada' });
   } catch (e) { const a = authError(e); if (a) return errorResponse(a, 403); return errorResponse('Error al eliminar la variante'); }
 }

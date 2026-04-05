@@ -117,6 +117,21 @@ export default function AdminUsuariosPage() {
     finally { setSaving(false); }
   };
 
+  const handleToggleActivo = async (u: Usuario) => {
+    const nuevoActivo = !(u as any).activo;
+    try {
+      const res = await apiFetch('/api/usuarios', {
+        method: 'PUT',
+        body: JSON.stringify({ id: u.id, activo: nuevoActivo }),
+      });
+      const data: ApiResponse<unknown> = await res.json();
+      if (data.success) {
+        setUsuarios(prev => prev.map(x => x.id === u.id ? { ...x, activo: nuevoActivo } as any : x));
+        notify(nuevoActivo ? 'Usuario activado' : 'Usuario desactivado');
+      }
+    } catch { notifyError('Error al cambiar estado'); }
+  };
+
   const handleDelete = async (u: Usuario) => {
     setConfirmDelete(null);
     try {
@@ -265,6 +280,19 @@ export default function AdminUsuariosPage() {
                     </td>
                     <td className="table-cell text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        {/* Toggle activo */}
+                        <button
+                          onClick={() => handleToggleActivo(u)}
+                          title={(u as any).activo === false ? 'Activar usuario' : 'Desactivar usuario'}
+                          className="btn-icon"
+                          style={{ color: (u as any).activo === false ? 'var(--danger)' : 'var(--success)' }}>
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-3.5 w-3.5">
+                            {(u as any).activo === false
+                              ? <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
+                              : <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                            }
+                          </svg>
+                        </button>
                         <button onClick={() => openEdit(u)} className="btn-icon" title="Editar">
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-3.5 w-3.5">
                             <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />

@@ -17,7 +17,12 @@ export async function GET(request: NextRequest) {
       return successResponse(result.recordset[0]);
     }
     const req = pool.request();
-    let query = 'SELECT id, id_rol, id_tienda, correo, nombre, apellido, telefono, identidad, fecha_nacimiento, creado_en, actualizado_en FROM usuarios WHERE 1=1';
+    // Verificar si columna activo existe
+    const activoColCheck = await pool.request().query(
+      `SELECT COUNT(*) as existe FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'usuarios' AND COLUMN_NAME = 'activo'`
+    );
+    const activoColExists = activoColCheck.recordset[0]?.existe > 0;
+    let query = `SELECT id, id_rol, id_tienda, correo, nombre, apellido, telefono, identidad, fecha_nacimiento, ${activoColExists ? 'activo,' : ''} creado_en, actualizado_en FROM usuarios WHERE 1=1`;
     if (rol) { req.input('id_rol', sql.BigInt, rol); query += ' AND id_rol = @id_rol'; }
     // Admin de sucursal: cajeros → solo los de su tienda; clientes → los que tienen pedidos en su tienda
     if (Number(payload.id_rol) === 4) {
@@ -139,6 +144,15 @@ export async function PUT(request: NextRequest) {
     const req = pool.request().input('id', sql.BigInt, id);
     const sets: string[] = [];
     if (body.id_rol !== undefined)   { req.input('id_rol', sql.BigInt, body.id_rol);                sets.push('id_rol = @id_rol'); }
+    if (body.activo !== undefined) {
+      const activoCheck = await pool.request().query(
+        `SELECT COUNT(*) as existe FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'usuarios' AND COLUMN_NAME = 'activo'`
+      );
+      if (activoCheck.recordset[0]?.existe > 0) {
+        req.input('activo', sql.Bit, body.activo ? 1 : 0);
+        sets.push('activo = @activo');
+      }
+    }
     if ('id_tienda' in body && tiendaColumnExists) {
       req.input('id_tienda', sql.BigInt, body.id_tienda ?? null);
       sets.push('id_tienda = @id_tienda');
@@ -181,59 +195,18 @@ export async function DELETE(request: NextRequest) {
       .query('SELECT id FROM usuarios WHERE id = @id');
     if (check.recordset.length === 0) return errorResponse('Usuario no encontrado', 404);
 
-    // Eliminar datos relacionados en orden para respetar FK
+    // Verificar si tiene ventas (pedidos)
+    const ventas = await pool.request().input('id', sql.BigInt, id)
+      .query('SELECT TOP 1 id FROM pedidos WHERE id_usuario = @id');
+    if (ventas.recordset.length > 0) {
+      return errorResponse('Este usuario tiene ventas registradas y no puede eliminarse. Puedes desactivarlo en su lugar.', 409);
+    }
+
     const req = () => pool.request().input('id', sql.BigInt, id);
-
-    // 1. Items de devolución → devoluciones (via pedidos del usuario)
-    await req().query(`
-      DELETE id FROM items_devolucion id
-      INNER JOIN devoluciones d ON id.id_devolucion = d.id
-      INNER JOIN pedidos p ON d.id_pedido = p.id
-      WHERE p.id_usuario = @id
-    `);
-    await req().query(`
-      DELETE d FROM devoluciones d
-      INNER JOIN pedidos p ON d.id_pedido = p.id
-      WHERE p.id_usuario = @id
-    `);
-
-    // 2. Cupones aplicados a pedidos del usuario
-    await req().query(`
-      DELETE cp FROM cupones_pedido cp
-      INNER JOIN pedidos p ON cp.id_pedido = p.id
-      WHERE p.id_usuario = @id
-    `);
-
-    // 3. Pagos de pedidos del usuario
-    await req().query(`
-      DELETE pg FROM pagos pg
-      INNER JOIN pedidos p ON pg.id_pedido = p.id
-      WHERE p.id_usuario = @id
-    `);
-
-    // 4. Items de pedido → pedidos
-    await req().query(`
-      DELETE ip FROM items_pedido ip
-      INNER JOIN pedidos p ON ip.id_pedido = p.id
-      WHERE p.id_usuario = @id
-    `);
-    await req().query('DELETE FROM pedidos WHERE id_usuario = @id');
-
-    // 5. Items de carrito → carritos
-    await req().query(`
-      DELETE ic FROM items_carrito ic
-      INNER JOIN carritos_compra cc ON ic.id_carrito = cc.id
-      WHERE cc.id_usuario = @id
-    `);
+    await req().query(`DELETE ic FROM items_carrito ic INNER JOIN carritos_compra cc ON ic.id_carrito = cc.id WHERE cc.id_usuario = @id`);
     await req().query('DELETE FROM carritos_compra WHERE id_usuario = @id');
-
-    // 6. Direcciones (ON DELETE CASCADE pero por si acaso)
     await req().query('DELETE FROM direcciones_usuario WHERE id_usuario = @id');
-
-    // 7. Turnos del usuario
     await req().query('DELETE FROM turnos WHERE id_usuario = @id');
-
-    // 8. Finalmente el usuario
     await req().query('DELETE FROM usuarios WHERE id = @id');
 
     return successResponse({ message: 'Usuario eliminado' });

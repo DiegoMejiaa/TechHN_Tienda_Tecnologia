@@ -36,10 +36,10 @@
 
 /* ─── DARK MODE ─── */
 .dark {
-  --bg:           #000000;
-  --bg-secondary: #0a0f1a;
-  --card:         #0d1526;
-  --card-hover:   #111d35;
+  --bg:           #080e1a;
+  --bg-secondary: #0d1526;
+  --card:         #111d35;
+  --card-hover:   #162440;
   --border:       #1e3a5f;
   --border-focus: #3b82f6;
 

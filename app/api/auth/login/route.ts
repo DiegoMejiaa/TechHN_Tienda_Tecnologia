@@ -20,6 +20,8 @@ export async function POST(request: NextRequest) {
     if (result.recordset.length === 0) return errorResponse('Credenciales inválidas', 401);
 
     const usuario = result.recordset[0];
+    if (usuario.activo === false || usuario.activo === 0) return errorResponse('Usuario inactivo. Contacta al administrador.', 403);
+
     const valid = await bcrypt.compare(contrasena, usuario.hash_contrasena);
     if (!valid) return errorResponse('Credenciales inválidas', 401);
 
