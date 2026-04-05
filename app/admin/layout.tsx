@@ -20,7 +20,7 @@ const NAV_ITEMS = [
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { usuario, isAdmin, isLoading, logout } = useAuth();
+  const { usuario, isAdmin, isLoading, logout, isLoggingOut } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -55,7 +55,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (!isLoading && (!usuario || !isAdmin)) {
-      router.push('/auth/login');
+      if (!isLoggingOut) router.push('/auth/login');
     }
   }, [usuario, isAdmin, isLoading, router]);
 

@@ -100,6 +100,9 @@ export default function CajeroVentaPage() {
   const [showModalPago, setShowModalPago] = useState(false);
   const [ventaCompletada, setVentaCompletada] = useState<{ id: number; total: number; cambio: number | null } | null>(null);
   const [alertSinStock, setAlertSinStock] = useState<string | null>(null);
+  const [pageLocal, setPageLocal] = useState(1);
+  const [pageOtras, setPageOtras] = useState(1);
+  const PAGE_SIZE = 12;
 
   // Datos del cliente — simples, sin crear usuario
   const [clienteNombre, setClienteNombre] = useState('');
@@ -355,46 +358,74 @@ export default function CajeroVentaPage() {
           <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Productos disponibles</p>
           {variantes.length === 0 ? (
             <div className="card p-10 text-center"><p className="text-sm" style={{ color: 'var(--text-muted)' }}>Sin stock en esta sucursal</p></div>
-          ) : (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {variantes.slice(0, 12).map(v => {
-                const enCarrito = carrito.find(i => i.variante.id === v.id);
-                const agotado = v.stock_tienda <= 0 || (enCarrito ? enCarrito.cantidad >= v.stock_tienda : false);
-                return (
-                  <button key={v.id} onClick={() => agregarItem(v)}
-                    className="card p-3 text-left transition-all relative"
-                    style={agotado ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
-                    onMouseEnter={e => !agotado && (e.currentTarget.style.borderColor = 'var(--blue)')}
-                    onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}>
-                    <div className="h-20 w-full rounded-lg mb-2 overflow-hidden flex items-center justify-center" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                      {v.imagen_url
-                        ? <img src={v.imagen_url} alt={v.nombre_producto} className="h-full w-full object-contain p-1" />
-                        : <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="h-8 w-8" style={{ color: 'var(--border)' }}><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg>
-                      }
+          ) : (() => {
+            const totalPagesLocal = Math.ceil(variantes.length / PAGE_SIZE);
+            const paginatedLocal = variantes.slice((pageLocal - 1) * PAGE_SIZE, pageLocal * PAGE_SIZE);
+            return (
+              <>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {paginatedLocal.map(v => {
+                    const enCarrito = carrito.find(i => i.variante.id === v.id);
+                    const agotado = v.stock_tienda <= 0 || (enCarrito ? enCarrito.cantidad >= v.stock_tienda : false);
+                    return (
+                      <button key={v.id} onClick={() => agregarItem(v)}
+                        className="card p-3 text-left transition-all relative"
+                        style={agotado ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
+                        onMouseEnter={e => !agotado && (e.currentTarget.style.borderColor = 'var(--blue)')}
+                        onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}>
+                        <div className="h-20 w-full rounded-lg mb-2 overflow-hidden flex items-center justify-center" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                          {v.imagen_url
+                            ? <img src={v.imagen_url} alt={v.nombre_producto} className="h-full w-full object-contain p-1" />
+                            : <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="h-8 w-8" style={{ color: 'var(--border)' }}><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg>
+                          }
+                        </div>
+                        <p className="text-xs font-semibold truncate" style={{ color: 'var(--text)' }}>{v.nombre_producto}</p>
+                        <p className="text-xs truncate mb-1.5" style={{ color: 'var(--text-muted)' }}>{v.nombre_variante || v.sku}</p>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-bold" style={{ color: 'var(--blue)' }}>{formatLempira(v.precio_oferta ?? v.precio)}</span>
+                          <span className="text-xs px-1.5 py-0.5 rounded-full font-semibold"
+                            style={v.stock_tienda <= 0
+                              ? { backgroundColor: 'var(--danger-bg)', color: 'var(--danger)' }
+                              : v.stock_tienda <= 3
+                                ? { backgroundColor: 'var(--warning-bg)', color: 'var(--warning)' }
+                                : { backgroundColor: 'var(--success-bg)', color: 'var(--success)' }}>
+                            {v.stock_tienda <= 0 ? 'No disponible' : v.stock_tienda}
+                          </span>
+                        </div>
+                        {enCarrito && (
+                          <div className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full text-white text-xs font-bold" style={{ backgroundColor: 'var(--blue)' }}>
+                            {enCarrito.cantidad}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                {totalPagesLocal > 1 && (
+                  <div className="flex items-center justify-between mt-3">
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                      {(pageLocal - 1) * PAGE_SIZE + 1}–{Math.min(pageLocal * PAGE_SIZE, variantes.length)} de {variantes.length}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => setPageLocal(p => Math.max(1, p - 1))} disabled={pageLocal === 1} className="btn-icon disabled:opacity-30">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-3.5 w-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+                      </button>
+                      {Array.from({ length: totalPagesLocal }, (_, i) => i + 1).map(n => (
+                        <button key={n} onClick={() => setPageLocal(n)}
+                          className="h-7 w-7 rounded-lg text-xs font-semibold transition-colors"
+                          style={{ backgroundColor: pageLocal === n ? 'var(--blue)' : 'transparent', color: pageLocal === n ? '#fff' : 'var(--text-muted)', border: pageLocal === n ? 'none' : '1px solid var(--border)' }}>
+                          {n}
+                        </button>
+                      ))}
+                      <button onClick={() => setPageLocal(p => Math.min(totalPagesLocal, p + 1))} disabled={pageLocal === totalPagesLocal} className="btn-icon disabled:opacity-30">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-3.5 w-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                      </button>
                     </div>
-                    <p className="text-xs font-semibold truncate" style={{ color: 'var(--text)' }}>{v.nombre_producto}</p>
-                    <p className="text-xs truncate mb-1.5" style={{ color: 'var(--text-muted)' }}>{v.nombre_variante || v.sku}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold" style={{ color: 'var(--blue)' }}>{formatLempira(v.precio_oferta ?? v.precio)}</span>
-                      <span className="text-xs px-1.5 py-0.5 rounded-full font-semibold"
-                        style={v.stock_tienda <= 0
-                          ? { backgroundColor: 'var(--danger-bg)', color: 'var(--danger)' }
-                          : v.stock_tienda <= 3
-                            ? { backgroundColor: 'var(--warning-bg)', color: 'var(--warning)' }
-                            : { backgroundColor: 'var(--success-bg)', color: 'var(--success)' }}>
-                        {v.stock_tienda <= 0 ? 'No disponible' : v.stock_tienda}
-                      </span>
-                    </div>
-                    {enCarrito && (
-                      <div className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full text-white text-xs font-bold" style={{ backgroundColor: 'var(--blue)' }}>
-                        {enCarrito.cantidad}
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
 
         {/* Disponible en otras sucursales */}
@@ -406,33 +437,63 @@ export default function CajeroVentaPage() {
               </svg>
               Disponible en otras sucursales
             </p>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {variantesOtrasSucursales.map(v => (
-                <button key={v.id} onClick={() => agregarItem({ ...v, stock_tienda: v.stock_otras || 0 })}
-                  className="card p-3 text-left transition-all"
-                  style={{ border: '1px dashed var(--border)', opacity: 0.85 }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.opacity = '1'; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.opacity = '0.85'; }}>
-                  <div className="h-20 w-full rounded-lg mb-2 overflow-hidden flex items-center justify-center" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                    {v.imagen_url
-                      ? <img src={v.imagen_url} alt={v.nombre_producto} className="h-full w-full object-contain p-1" />
-                      : <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="h-8 w-8" style={{ color: 'var(--border)' }}><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg>
-                    }
-                  </div>
-                  <p className="text-xs font-semibold truncate" style={{ color: 'var(--text)' }}>{v.nombre_producto}</p>
-                  <p className="text-xs truncate mb-1.5" style={{ color: 'var(--text-muted)' }}>{v.nombre_variante || v.sku}</p>
-                  <p className="text-sm font-bold" style={{ color: 'var(--text)' }}>{formatLempira(v.precio_oferta ?? v.precio)}</p>
-                  <div className="mt-1.5 space-y-1">
-                    {(v.sucursales_disponibles || []).map(s => (
-                      <div key={s.nombre} className="flex items-center justify-between rounded-lg px-2 py-1" style={{ backgroundColor: '#eff6ff' }}>
-                        <span className="text-xs font-semibold truncate" style={{ color: '#3b82f6' }}>{s.nombre}</span>
-                        <span className="text-xs font-bold ml-1 shrink-0" style={{ color: '#3b82f6' }}>{s.cantidad}</span>
-                      </div>
+            {(() => {
+              const totalPagesOtras = Math.ceil(variantesOtrasSucursales.length / PAGE_SIZE);
+              const paginatedOtras = variantesOtrasSucursales.slice((pageOtras - 1) * PAGE_SIZE, pageOtras * PAGE_SIZE);
+              return (
+                <>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {paginatedOtras.map(v => (
+                      <button key={v.id} onClick={() => agregarItem({ ...v, stock_tienda: v.stock_otras || 0 })}
+                        className="card p-3 text-left transition-all"
+                        style={{ border: '1px dashed var(--border)', opacity: 0.85 }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.opacity = '1'; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.opacity = '0.85'; }}>
+                        <div className="h-20 w-full rounded-lg mb-2 overflow-hidden flex items-center justify-center" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                          {v.imagen_url
+                            ? <img src={v.imagen_url} alt={v.nombre_producto} className="h-full w-full object-contain p-1" />
+                            : <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="h-8 w-8" style={{ color: 'var(--border)' }}><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg>
+                          }
+                        </div>
+                        <p className="text-xs font-semibold truncate" style={{ color: 'var(--text)' }}>{v.nombre_producto}</p>
+                        <p className="text-xs truncate mb-1.5" style={{ color: 'var(--text-muted)' }}>{v.nombre_variante || v.sku}</p>
+                        <p className="text-sm font-bold" style={{ color: 'var(--text)' }}>{formatLempira(v.precio_oferta ?? v.precio)}</p>
+                        <div className="mt-1.5 space-y-1">
+                          {(v.sucursales_disponibles || []).map(s => (
+                            <div key={s.nombre} className="flex items-center justify-between rounded-lg px-2 py-1" style={{ backgroundColor: '#eff6ff' }}>
+                              <span className="text-xs font-semibold truncate" style={{ color: '#3b82f6' }}>{s.nombre}</span>
+                              <span className="text-xs font-bold ml-1 shrink-0" style={{ color: '#3b82f6' }}>{s.cantidad}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </button>
                     ))}
                   </div>
-                </button>
-              ))}
-            </div>
+                  {totalPagesOtras > 1 && (
+                    <div className="flex items-center justify-between mt-3">
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                        {(pageOtras - 1) * PAGE_SIZE + 1}–{Math.min(pageOtras * PAGE_SIZE, variantesOtrasSucursales.length)} de {variantesOtrasSucursales.length}
+                      </p>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setPageOtras(p => Math.max(1, p - 1))} disabled={pageOtras === 1} className="btn-icon disabled:opacity-30">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-3.5 w-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+                        </button>
+                        {Array.from({ length: totalPagesOtras }, (_, i) => i + 1).map(n => (
+                          <button key={n} onClick={() => setPageOtras(n)}
+                            className="h-7 w-7 rounded-lg text-xs font-semibold transition-colors"
+                            style={{ backgroundColor: pageOtras === n ? 'var(--blue)' : 'transparent', color: pageOtras === n ? '#fff' : 'var(--text-muted)', border: pageOtras === n ? 'none' : '1px solid var(--border)' }}>
+                            {n}
+                          </button>
+                        ))}
+                        <button onClick={() => setPageOtras(p => Math.min(totalPagesOtras, p + 1))} disabled={pageOtras === totalPagesOtras} className="btn-icon disabled:opacity-30">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-3.5 w-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         )}
       </div>

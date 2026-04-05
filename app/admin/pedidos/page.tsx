@@ -297,7 +297,7 @@ export default function AdminVentasPage() {
           className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: 'var(--text-muted)' }}>
           <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
         </svg>
-        <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+        <input type="text" value={search}
           placeholder="Buscar por cliente, # o sucursal..." className="input pl-9"
           onChange={e => setSearchConReset(e.target.value)} />
       </div>

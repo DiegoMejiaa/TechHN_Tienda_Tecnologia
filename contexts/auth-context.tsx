@@ -27,6 +27,7 @@ interface AuthContextType {
   login: (data: { correo: string; contrasena: string }) => Promise<{ success: boolean; redirect?: string; error?: string }>;
   register: (data: { correo: string; contrasena: string; nombre: string; apellido: string; telefono?: string }) => Promise<{ success: boolean; redirect?: string; error?: string }>;
   logout: () => void;
+  isLoggingOut: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -34,6 +35,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     const stored = sessionStorage.getItem('usuario');
@@ -102,9 +104,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    setIsLoggingOut(true);
     sessionStorage.removeItem('token');
     sessionStorage.removeItem('usuario');
-    setUsuario(null);
     window.location.href = '/';
   };
 
@@ -120,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       register,
       logout,
+      isLoggingOut,
     }}>
       {children}
     </AuthContext.Provider>

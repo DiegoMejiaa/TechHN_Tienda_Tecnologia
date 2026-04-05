@@ -52,11 +52,20 @@ export default function RegisterPage() {
 
   const set = (k: keyof typeof formData) => (v: string) => setFormData(p => ({ ...p, [k]: v }));
 
+  const handleTelefono = (raw: string) => {
+    // Solo dígitos, máx 8
+    const digits = raw.replace(/\D/g, '').slice(0, 8);
+    // Formato: 9999-9999
+    const formatted = digits.length > 4 ? digits.slice(0, 4) + '-' + digits.slice(4) : digits;
+    setFormData(p => ({ ...p, telefono: formatted }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     if (formData.contrasena !== formData.confirmarContrasena) { setError('Las contraseñas no coinciden'); return; }
     if (formData.contrasena.length < 6) { setError('La contraseña debe tener al menos 6 caracteres'); return; }
+    if (formData.telefono && formData.telefono.replace('-', '').length < 8) { setError('El teléfono debe tener 8 dígitos'); return; }
     setIsLoading(true);
     const result = await register({
       nombre: formData.nombre, apellido: formData.apellido, correo: formData.correo,
@@ -179,7 +188,18 @@ export default function RegisterPage() {
                 <label htmlFor="telefono" className="block text-sm font-medium mb-1.5" style={{ color: 'rgba(255,255,255,0.8)' }}>
                   Teléfono <span style={{ color: 'rgba(255,255,255,0.4)' }}>(opcional)</span>
                 </label>
-                <GlassInput id="telefono" type="tel" value={formData.telefono} onChange={set('telefono')} placeholder="+504 9999-9999" />
+                <input
+                  id="telefono" type="tel" value={formData.telefono}
+                  onChange={e => handleTelefono(e.target.value)}
+                  placeholder="9999-9999"
+                  maxLength={9}
+                  style={inputStyle}
+                  onFocus={e => { e.currentTarget.style.borderColor = 'rgba(96,165,250,0.7)'; e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.12)'; }}
+                  onBlur={e =>  { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';  e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)'; }}
+                />
+                {formData.telefono && formData.telefono.replace('-', '').length < 8 && (
+                  <p className="text-xs mt-1" style={{ color: 'rgba(252,165,165,0.8)' }}>Debe tener 8 dígitos (ej: 9999-9999)</p>
+                )}
               </div>
 
               {/* Contraseña */}

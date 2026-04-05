@@ -87,7 +87,6 @@ export default function NuevoProductoPage() {
           id_marca = marcaData.data.id;
         }
       }
-      }
       // 2. Crear producto
       const prodRes = await apiFetch('/api/productos', {
         method: 'POST',
@@ -238,7 +237,7 @@ export default function NuevoProductoPage() {
                         <button type="button" className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm" style={{ borderBottom: '1px solid var(--border)', color: 'var(--blue)' }}
                           onMouseDown={() => { setFormData(p => ({ ...p, id_marca: 'nueva' })); setMarcaNueva(true); setMarcaDropdownOpen(false); }}>
                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-3.5 w-3.5 shrink-0"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                          Crear marca "{marcaInput.trim()}"
+                          Crear marca &quot;{marcaInput.trim()}&quot;
                         </button>
                       )}
                       {marcas.filter(m => m.nombre.toLowerCase().includes(marcaInput.toLowerCase())).map(m => (

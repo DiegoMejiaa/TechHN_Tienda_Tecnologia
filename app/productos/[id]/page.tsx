@@ -9,6 +9,7 @@ import { useCart } from '@/contexts/cart-context';
 import { useAuth } from '@/contexts/auth-context';
 import type { Producto, VarianteProducto, ApiResponse } from '@/types';
 import { formatLempira } from '@/lib/format';
+import { ResenasSection } from '@/components/products/resenas-section';
 
 export default function ProductoDetailPage() {
   const params = useParams();
@@ -307,6 +308,7 @@ export default function ProductoDetailPage() {
               </div>
             </div>
           </div>
+          <ResenasSection idProducto={Number(params.id)} />
         </div>
       </main>
       <Footer />

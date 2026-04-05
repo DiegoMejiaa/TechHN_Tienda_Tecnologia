@@ -400,13 +400,13 @@ function CajeroShell({ children }: { children: React.ReactNode }) {
 
 // ── Layout raíz ──────────────────────────────────────────────────────────────
 export default function CajeroLayout({ children }: { children: React.ReactNode }) {
-  const { usuario, isCajero, isAdmin, isLoading } = useAuth();
+  const { usuario, isCajero, isAdmin, isLoading, isLoggingOut } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && !usuario) router.push('/auth/login');
+    if (!isLoading && !usuario && !isLoggingOut) router.push('/auth/login');
     if (!isLoading && usuario && !isCajero && !isAdmin) router.push('/');
-  }, [usuario, isCajero, isAdmin, isLoading, router]);
+  }, [usuario, isCajero, isAdmin, isLoading, isLoggingOut, router]);
 
   if (isLoading || !usuario) {
     return (
