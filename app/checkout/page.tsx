@@ -86,7 +86,8 @@ export default function CheckoutPage() {
     if (metodoPago !== 'paypal') return;
 
     const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
-    if (!clientId) return;
+    console.log('[PayPal] clientId:', clientId ? clientId.substring(0, 20) + '...' : 'VACÍO');
+    if (!clientId) { setError('PayPal no está configurado correctamente.'); return; }
 
     setPaypalReady(false);
     let cancelled = false;
