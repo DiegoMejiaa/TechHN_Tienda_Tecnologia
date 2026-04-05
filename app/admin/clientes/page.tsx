@@ -89,6 +89,8 @@ export default function AdminClientesPage() {
       } catch { /* ignore */ }
     }
   };
+
+  const openDetalle = async (c: ClienteConStats) => {
     setDetalle(c);
     setLoadingPedidos(true);
     try {
