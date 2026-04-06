@@ -5,11 +5,15 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Categoria, Marca, ApiResponse, Producto, Tienda } from '@/types';
 import { apiFetch } from '@/lib/api-fetch';
+import { useAuth } from '@/contexts/auth-context';
 
 interface StockTienda { id_tienda: number; nombre: string; cantidad: number }
 
 export default function NuevoProductoPage() {
   const router = useRouter();
+  const { usuario } = useAuth();
+  const isAdminSucursal = Number(usuario?.id_rol) === 4;
+  const idTiendaAdmin = usuario?.id_tienda ?? null;
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [marcas, setMarcas] = useState<Marca[]>([]);
   const [tiendas, setTiendas] = useState<Tienda[]>([]);
@@ -44,8 +48,12 @@ export default function NuevoProductoPage() {
         if (catData.success && catData.data) setCategorias(catData.data);
         if (marcasData.success && marcasData.data) setMarcas(marcasData.data);
         if (tiendasData.success && tiendasData.data) {
-          setTiendas(tiendasData.data);
-          setStockTiendas(tiendasData.data.map(t => ({ id_tienda: t.id, nombre: t.nombre, cantidad: 0 })));
+          const todasTiendas = tiendasData.data;
+          const tiendasFiltradas = isAdminSucursal && idTiendaAdmin
+            ? todasTiendas.filter(t => Number(t.id) === Number(idTiendaAdmin))
+            : todasTiendas;
+          setTiendas(tiendasFiltradas);
+          setStockTiendas(tiendasFiltradas.map(t => ({ id_tienda: t.id, nombre: t.nombre, cantidad: 0 })));
         }
       } catch { setError('Error al cargar datos'); }
     }
