@@ -231,7 +231,7 @@ export default function CajeroVentaPage() {
           cliente_nombre: clienteNombre.trim() || null,
           cliente_telefono: clienteTelefono.trim() || null,
           cliente_correo: clienteCorreo.trim() || null,
-          cliente_direccion: pendienteEntrega ? clienteDireccion.trim() || null : null,
+          envio_direccion: pendienteEntrega ? clienteDireccion.trim() || null : null,
           items: carrito.map(i => ({ id_variante: i.variante.id, cantidad: i.cantidad })),
         }),
       });
