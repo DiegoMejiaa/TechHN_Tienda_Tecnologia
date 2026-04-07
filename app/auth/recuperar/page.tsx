@@ -43,9 +43,23 @@ export default function RecuperarPage() {
   const handleVerificarCodigo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (codigo.length !== 6) { setError('El código debe tener 6 dígitos'); return; }
-    setError('');
-    setStep('nueva');
-    setSuccess('');
+    setError(''); setIsLoading(true);
+    try {
+      const res = await fetch('/api/auth/verify-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ correo, codigo }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setStep('nueva');
+        setSuccess('');
+      } else {
+        setError(data.message || 'Código incorrecto o expirado');
+      }
+    } catch {
+      setError('Error de conexión');
+    } finally { setIsLoading(false); }
   };
 
   const handleCambiarContrasena = async (e: React.FormEvent) => {
@@ -157,8 +171,8 @@ export default function RecuperarPage() {
                   El código expira en 15 minutos
                 </p>
               </div>
-              <button type="submit" disabled={codigo.length !== 6} className="btn-primary w-full py-2.5 disabled:opacity-50">
-                Verificar código
+              <button type="submit" disabled={codigo.length !== 6 || isLoading} className="btn-primary w-full py-2.5 disabled:opacity-50">
+                {isLoading ? 'Verificando...' : 'Verificar código'}
               </button>
               <button type="button" onClick={() => { setStep('correo'); setError(''); setSuccess(''); setCodigo(''); }}
                 className="w-full text-sm text-center" style={{ color: 'var(--text-muted)' }}>

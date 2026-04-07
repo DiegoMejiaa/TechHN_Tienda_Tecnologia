@@ -21,9 +21,9 @@ export async function POST(request: NextRequest) {
       .input('correo', sql.NVarChar, correo)
       .query('SELECT id, nombre FROM usuarios WHERE correo = @correo');
 
-    // Siempre responder igual para no revelar si el correo existe
+    // Si el correo no existe, decirlo claramente
     if (userRes.recordset.length === 0) {
-      return successResponse({ message: 'Si el correo existe, recibirás un código' });
+      return errorResponse('Correo no registrado en el sistema', 404);
     }
 
     const usuario = userRes.recordset[0];
